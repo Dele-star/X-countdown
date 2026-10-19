@@ -14,8 +14,9 @@ def generate_banner():
     now = datetime.datetime.now(datetime.timezone.utc)
     time_left = TARGET_DATE - now
 
+    # Check if the countdown has reached or passed the target date
     if time_left.total_seconds() <= 0:
-        countdown_text = "00D : 00H : 00M : 00S"
+        countdown_text = "LIVE NOW!"
     else:
         days = time_left.days
         hours, remainder = divmod(time_left.seconds, 3600)
@@ -30,7 +31,6 @@ def generate_banner():
     # Use default PIL font or scalable TrueType font
     font_size = 110
     try:
-        # Tries to load a bold standard system font
         font = ImageFont.truetype("arial.ttf", font_size)
     except IOError:
         try:
