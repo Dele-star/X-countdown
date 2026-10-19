@@ -1,43 +1,70 @@
-from datetime import datetime, timezone
+import os
+import datetime
 from PIL import Image, ImageDraw, ImageFont
 import tweepy
-import os
 
-CONSUMER_KEY = os.environ.get("TWITTER_CONSUMER_KEY")
-CONSUMER_SECRET = os.environ.get("TWITTER_CONSUMER_SECRET")
-ACCESS_TOKEN = os.environ.get("TWITTER_ACCESS_TOKEN")
-ACCESS_TOKEN_SECRET = os.environ.get("TWITTER_ACCESS_TOKEN_SECRET")
+# Target Date: November 1, 2026 00:00:00 UTC
+TARGET_DATE = datetime.datetime(2026, 11, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
 
-auth = tweepy.OAuth1UserHandler(CONSUMER_KEY, CONSUMER_SECRET, ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
-api = tweepy.API(auth)
+# Pink color extracted from the CC logo image
+PINK_COLOR = (255, 59, 107)  # #FF3B6B
+BG_COLOR = (15, 15, 15)      # Dark clean background
 
-# SET YOUR TARGET COUNTDOWN DATE & TIME (UTC)
-TARGET_DATE = datetime(2026, 11, 1, 0, 0, tzinfo=timezone.utc) 
+def generate_banner():
+    now = datetime.datetime.now(datetime.timezone.utc)
+    time_left = TARGET_DATE - now
 
-now = datetime.now(timezone.utc)
-remaining = TARGET_DATE - now
-days_left = max(0, remaining.days)
+    if time_left.total_seconds() <= 0:
+        countdown_text = "00D : 00H : 00M : 00S"
+    else:
+        days = time_left.days
+        hours, remainder = divmod(time_left.seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        countdown_text = f"{days:02d}D : {hours:02d}H : {minutes:02d}M : {seconds:02d}S"
 
-# Create 1500x500 banner image
-banner = Image.new("RGB", (1500, 500), color=(15, 20, 25))
-draw = ImageDraw.Draw(banner)
+    # Banner dimensions for X (1500 x 500)
+    width, height = 1500, 500
+    image = Image.new("RGB", (width, height), color=BG_COLOR)
+    draw = ImageDraw.Draw(image)
 
-try:
-    font_large = ImageFont.truetype("arial.ttf", 130)
-    font_small = ImageFont.truetype("arial.ttf", 55)
-except IOError:
-    font_large = ImageFont.load_default()
-    font_small = ImageFont.load_default()
+    # Use default PIL font or scalable TrueType font
+    font_size = 110
+    try:
+        # Tries to load a bold standard system font
+        font = ImageFont.truetype("arial.ttf", font_size)
+    except IOError:
+        try:
+            font = ImageFont.truetype("DejaVuSans-Bold.ttf", font_size)
+        except IOError:
+            font = ImageFont.load_default()
 
-draw.text((750, 190), f"{days_left} DAYS LEFT", fill=(255, 255, 255), anchor="mm", font=font_large)
-draw.text((750, 320), "Until the big event!", fill=(136, 153, 166), anchor="mm", font=font_small)
+    # Get text bounding box to center it
+    bbox = draw.textbbox((0, 0), countdown_text, font=font)
+    text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
 
-banner_path = "temp_banner.png"
-banner.save(banner_path)
+    x = (width - text_width) / 2
+    y = (height - text_height) / 2 - 20
 
-# Upload banner to X
-api.update_profile_banner(banner_path)
-print(f"Updated banner! Countdown: {days_left} days left.")
+    # Draw main text in Pink
+    draw.text((x, y), countdown_text, fill=PINK_COLOR, font=font)
 
-if os.path.exists(banner_path):
-    os.remove(banner_path)
+    banner_path = "banner.png"
+    image.save(banner_path)
+    return banner_path
+
+def update_x_banner():
+    consumer_key = os.environ.get("TWITTER_CONSUMER_KEY")
+    consumer_secret = os.environ.get("TWITTER_CONSUMER_SECRET")
+    access_token = os.environ.get("TWITTER_ACCESS_TOKEN")
+    access_token_secret = os.environ.get("TWITTER_ACCESS_TOKEN_SECRET")
+
+    auth = tweepy.OAuth1UserHandler(consumer_key, consumer_secret, access_token, access_token_secret)
+    api = tweepy.API(auth)
+
+    banner_path = generate_banner()
+    api.update_profile_banner(banner_path)
+    print("X banner updated successfully!")
+
+if __name__ == "__main__":
+    update_x_banner()
